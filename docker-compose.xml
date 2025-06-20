@@ -1,0 +1,102 @@
+# ====================================================================================
+# Docker compose file for RAG
+# Author  : jslee
+# Contact : AIBIZ co.,Ltd.
+# History : 
+# ====================================================================================
+# 공통부분
+
+services:
+  # ==================================================
+  # Qdrant :  Vector similarity search engine
+  # ==================================================
+  qdrant:
+    image: aibiz_qdrant:v1.14.1
+    container_name: qdrant
+    profiles: [prod, rnd6, qdrant]
+    restart: always
+    volumes:
+      - ./volumes/qdrant/storage:/qdrant/storage
+    ports:
+      - ${QDRANT_PORT:-6333}:${QDRANT_PORT:-6333}
+    networks:
+      - rag-network
+
+  # ==================================================
+  # Ollama : Get up and Running with LLM.
+  # ==================================================
+  ollama:
+    image: aibiz_ollama:0.9.1-rc0
+    container_name: ollama
+    profiles: [prod, rnd6, ollama]
+    volumes:
+      - ./volumes/ollama:/root/.ollama
+    networks:
+      - rag-network
+  
+  # ==================================================
+  # vLLM : LLM inference server (10.31GB)
+  #      모델            용량     H100 80GB      	1 K-token 응답 지연
+  #   DeepSeek-R1-70B  256GB     메모리 초과
+  #   Qwen-32B (FP16)	 123GB    35-45 tokens/s      2-3 s
+  # ==================================================
+  # vllm:
+  #   image: aibiz_vllm:0.9.1
+  #   container_name: vllm
+  #   profiles: [prod, rnd6, vllm]
+  #   volumes:
+  #     - ./volumes/vllm:/models
+  #   networks:
+  #     - rag-network
+      
+  # ==================================================
+  # ragbe : Backend of RAG.
+  # ==================================================
+  ragbe:
+    image: aibiz_ragbe:0.1.0
+    container_name: ragbe
+    profiles: [prod, rnd6, ragbe]
+    #depends_on:
+    #  - qdrant
+    #  - ollama
+    ports:
+      - ${RAGBE_PORT:-6000}:${RAGBE_PORT:-6000}
+    environment:
+      - QDRANT_URL=http://qdrant:${QDRANT_PORT:-6333}
+      - COLLECTION_NAME=${COLLECTION_NAME:-rag_docs}
+      - LLM_URL=${LLM_URL:-http://ollama:11434/api/generate}
+      - LLM_API_KEY=${LLM_API_KEY:-not-needed}
+      - LLM_MODEL_NAME=${LLM_MODEL_NAME:-deepseek-r1:8b}
+      - EMB_MODEL_NAME=${EMB_MODEL_NAME:-bge-base-en}
+    volumes:
+      - ./ragbe/app:/app
+      - ./volumes/ragbe/models/${EMB_MODEL_NAME:-bge-base-en}:/models/${EMB_MODEL_NAME:-bge-base-en}:ro
+    networks:
+      - rag-network
+
+  # ==================================================
+  # ragfe : Frontend of RAG.
+  # ==================================================
+  ragfe:
+    image: aibiz_ragfe:0.1.0
+    container_name: ragfe
+    profiles: [prod, rnd6, ragfe]
+    #depends_on:
+    #  - ragbe
+    ports:
+      - ${RAGFE_PORT:-6501}:${RAGFE_PORT:-6501}
+    environment:
+      - BACKEND_API=http://ragbe:${RAGBE_PORT:-6000}
+    volumes:
+      - ./ragfe/app:/app      
+    networks:
+      - rag-network
+
+# ==================================================
+# Networks configuration
+# data-network: 도커내부 통신용 네트워크로 미리 아래 명령으로 생성해 두어야 됨.
+# docker network create --driver bridge rag-network
+# ==================================================
+networks:
+  rag-network:
+    external: true
