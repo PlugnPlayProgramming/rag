@@ -1,0 +1,2 @@
+# 이미지 생성
+FROM ollama/ollama:0.9.1-rc0
