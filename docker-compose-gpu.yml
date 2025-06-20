@@ -1,0 +1,31 @@
+# ====================================================================================
+# Docker compose override file for GPU
+# Author  : jslee
+# Contact : AIBIZ co.,Ltd.
+# ====================================================================================
+services:
+  # ==================================================
+  # Ollama : Get up and Running with LLM.
+  # ==================================================
+  ollama:
+    volumes:
+      # for GPU
+      - /usr/local/cuda-12.6:/usr/local/cuda-12.6:ro
+      - /usr/bin/nvidia-smi:/usr/bin/nvidia-smi:ro      
+    environment:
+      # for cuda
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILTIES: all
+    runtime: nvidia
+
+  # vllm:
+  #   volumes:
+  #     # for GPU
+  #     - /usr/local/cuda-12.6:/usr/local/cuda-12.6:ro
+  #     - /usr/bin/nvidia-smi:/usr/bin/nvidia-smi:ro      
+  #   environment:
+  #     # for cuda
+  #     NVIDIA_VISIBLE_DEVICES: all
+  #     NVIDIA_DRIVER_CAPABILTIES: all
+  #   runtime: nvidia
+  # ==================================================
